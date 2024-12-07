@@ -1,357 +1,237 @@
-# This package is an experiment in active integration of upstream SCM with
-# Fedora packaging.  It works something like this:
-#
-# The "pristine" source is actually a git repo (with no working checkout).
-# The first step of %%prep is to check it out and switch to a "fedora" branch.
-# If you need to add a patch to the server, just do it like a normal git
-# operation, dump it with git-format-patch to a file in the standard naming
-# format, and add a PatchN: line.  If you want to push something upstream,
-# check out the master branch, pull, cherry-pick, and push.
-
 # X.org requires lazy relocations to work.
 %undefine _hardened_build
 %undefine _strict_symbol_defs_build
 
-#global gitdate 20161026
-%global stable_abi 1
-
-%if !0%{?gitdate} || %{stable_abi}
-# Released ABI versions.  Have to keep these manually in sync with the
-# source because rpm is a terrible language.
+# Released ABI versions:
 %global ansic_major 0
 %global ansic_minor 4
-%global videodrv_major 24
-%global videodrv_minor 1
+%global videodrv_major 25
+%global videodrv_minor 2
 %global xinput_major 24
-%global xinput_minor 1
+%global xinput_minor 4
 %global extension_major 10
 %global extension_minor 0
-%endif
-
-%if 0%{?gitdate}
-# For git snapshots, use date for major and a serial number for minor
-%global minor_serial 0
-%global git_ansic_major %{gitdate}
-%global git_ansic_minor %{minor_serial}
-%global git_videodrv_major %{gitdate}
-%global git_videodrv_minor %{minor_serial}
-%global git_xinput_major %{gitdate}
-%global git_xinput_minor %{minor_serial}
-%global git_extension_major %{gitdate}
-%global git_extension_minor %{minor_serial}
-%endif
 
 %global pkgname xorg-server
 
-Summary:   X.Org X11 X server
-Name:      xorg-x11-server
-Version:   @VERSION@
-Release:   @REL@%{?gitdate:.%{gitdate}}%{?dist}
-URL:       http://www.x.org
+Summary:    X.Org X11 X server
+Name:       xorg-x11-server
+Version:    @VERSION@
+Release:    @REL@%{?dist}
+URL:        http://www.x.org
 # SPDX
-License:   MIT
+License:    Adobe-Display-PostScript AND BSD-3-Clause AND DEC-3-Clause AND HPND AND HPND-sell-MIT-disclaimer-xserver AND HPND-sell-variant AND ICU AND ISC AND MIT AND MIT-open-group AND NTP AND SGI-B-2.0 AND SMLNJ AND X11 AND X11-distribute-modifications-variant
 
-#VCS:      git:git://git.freedesktop.org/git/xorg/xserver
-%if 0%{?gitdate}
-# git snapshot.  to recreate, run:
-# ./make-git-snapshot.sh `cat commitid`
-Source0:   xorg-server-%{gitdate}.tar.xz
-#Source0:   http://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.bz2
-Source1:   make-git-snapshot.sh
-Source2:   commitid
-%else
-Source0:   https://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.xz
-Source1:   gitignore
-%endif
+Source0:    https://www.x.org/pub/individual/xserver/%{pkgname}-%{version}.tar.xz
 
 Source10:   xserver.pamd
-
 # "useful" xvfb-run script
-Source20:  http://svn.exactcode.de/t2/trunk/package/xorg/xorg-server/xvfb-run.sh
-
+Source20:   http://svn.exactcode.de/t2/trunk/package/xorg/xorg-server/xvfb-run.sh
 # for requires generation in drivers
-Source30: xserver-sdk-abi-requires.release
-Source31: xserver-sdk-abi-requires.git
-
+Source30:   xserver-sdk-abi-requires
 # maintainer convenience script
-Source40: driver-abi-rebuild.sh
+Source40:   driver-abi-rebuild.sh
 
 # From Debian use intel ddx driver only for gen4 and older chipsets
-Patch1: 06_use-intel-only-on-pre-gen4.diff
+Patch0:     06_use-intel-only-on-pre-gen4.diff
 # Default to xf86-video-modesetting on GeForce 8 and newer
-Patch2: 0001-xfree86-use-modesetting-driver-by-default-on-GeForce.patch
-
+Patch1:     0001-xfree86-use-modesetting-driver-by-default-on-GeForce.patch
 # Default to va_gl on intel i965 as we use the modesetting drv there
 # va_gl should probably just be the default everywhere ?
-Patch3: 0001-xf86-dri2-Use-va_gl-as-vdpau_driver-for-Intel-i965-G.patch
-
-# Submitted upstream, but not going anywhere
-Patch5: 0001-autobind-GPUs-to-the-screen.patch
-
+Patch2:     0001-xf86-dri2-Use-va_gl-as-vdpau_driver-for-Intel-i965-G.patch
 # because the display-managers are not ready yet, do not upstream
-Patch6: 0001-Fedora-hack-Make-the-suid-root-wrapper-always-start-.patch
-
-# Not sure anyone else cares about this so let's keep this Fedora-only for now
-# Upstream PR for the meson.build equivalent is here, so we can drop this patch
-# when we start building with meson.
-# https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/1001`
-Patch7: 0001-configure.ac-search-for-the-fontrootdir-ourselves.patch
-
+Patch3:     0001-Fedora-hack-Make-the-suid-root-wrapper-always-start-.patch
+Patch4:     0001-Revert-xfree86-Set-appropriate-install_mode-for-suid.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=2326701
+Patch5:     0001-add-a-quirk-for-apple-silicon.patch
 # quirk for Novacustom V54
-Patch8: 0001-xfree86-fix-enumerating-resolutions-on-NovaCustom-V5.patch
+Patch6:     0001-xfree86-fix-enumerating-resolutions-on-NovaCustom-V5.patch
 # backport necessary for the above patch to be effective
-Patch9: 0002-hw-xfree86-re-calculate-the-clock-and-refresh-rate.patch
+Patch7:     0002-hw-xfree86-re-calculate-the-clock-and-refresh-rate.patch
 
-# Backports from current stable "server-1.20-branch":
-# <empty>
-
-# Backports from "master" upstream:
-Patch100: 0001-present-Check-for-NULL-to-prevent-crash.patch
-Patch101: 0001-render-Fix-build-with-gcc-12.patch
-Patch102: 0001-xf86-Accept-devices-with-the-simpledrm-driver.patch
-Patch103: 0001-Don-t-hardcode-fps-for-fake-screen.patch
-Patch104: 0001-hw-Rename-boolean-config-value-field-from-bool-to-bo.patch
-Patch105: 0001-add-a-quirk-for-apple-silicon.patch
-
-# CVE-2022-2319/ZDI-CAN-16062, CVE-2022-2320/ZDI-CAN-16070
-Patch110: 0001-xkb-switch-to-array-index-loops-to-moving-pointers.patch
-Patch111: 0002-xkb-swap-XkbSetDeviceInfo-and-XkbSetDeviceInfoCheck.patch
-Patch112: 0003-xkb-add-request-length-validation-for-XkbSetGeometry.patch
-
-# CVE-2022-3550
-Patch113: 0001-xkb-proof-GetCountedString-against-request-length-at.patch
-# CVE-2022-3551
-Patch114: 0001-xkb-fix-some-possible-memleaks-in-XkbGetKbdByName.patch
-
-# CVE-2022-46340
-Patch115: 0001-Xtest-disallow-GenericEvents-in-XTestSwapFakeInput.patch
-# related to CVE-2022-46344
-Patch116: 0002-Xi-return-an-error-from-XI-property-changes-if-verif.patch
-# CVE-2022-46344
-Patch117: 0003-Xi-avoid-integer-truncation-in-length-check-of-ProcX.patch
-# CVE-2022-46341
-Patch118: 0004-Xi-disallow-passive-grabs-with-a-detail-255.patch
-# CVE-2022-46343
-Patch119: 0005-Xext-free-the-screen-saver-resource-when-replacing-i.patch
-# CVE-2022-46342
-Patch120: 0006-Xext-free-the-XvRTVideoNotify-when-turning-off-from-.patch
-# CVE-2022-46283
-Patch121: 0007-xkb-reset-the-radio_groups-pointer-to-NULL-after-fre.patch
-# Fix for buggy patch to CVE-2022-46340
-Patch122: 0008-Xext-fix-invalid-event-type-mask-in-XTestSwapFakeInp.patch
-# CVE-2023-0494
-Patch123: 0001-Xi-fix-potential-use-after-free-in-DeepCopyPointerCl.patch
-# CVE-2023-1393
-Patch124: 0001-composite-Fix-use-after-free-of-the-COW.patch
-# https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/1114
-Patch125: xorg-x11-server-fb-access-wrapper.patch
-# https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/1057
-Patch126: 0001-present-Send-a-PresentConfigureNotify-event-for-dest.patch
-
-# Only on F38 and later (patch number starts at 3801, see autopatch below)
-# Upstream commits 73d6e88, f69280dd and 4127776, minus the xwayland.pc.in change
-Patch3801: 0001-Disallow-byte-swapped-clients-by-default.patch
-
-# CVE-2023-5367
-Patch3810: 0001-Xi-randr-fix-handling-of-PropModeAppend-Prepend.patch
-# CVE-2023-5380
-Patch3811: 0002-mi-reset-the-PointerWindows-reference-on-screen-swit.patch
-
-
-BuildRequires: make
-BuildRequires: systemtap-sdt-devel
-BuildRequires: git-core
-BuildRequires: automake autoconf libtool pkgconfig
-BuildRequires: xorg-x11-util-macros >= 1.17
-
-BuildRequires: xorg-x11-proto-devel >= 7.7-10
-
-BuildRequires: dbus-devel libepoxy-devel systemd-devel
-BuildRequires: xorg-x11-xtrans-devel >= 1.3.2
-BuildRequires: libXfont2-devel libXau-devel libxkbfile-devel libXres-devel
-BuildRequires: libfontenc-devel libXtst-devel libXdmcp-devel
-BuildRequires: libX11-devel libXext-devel
-BuildRequires: libXinerama-devel libXi-devel
-
-# DMX config utils buildreqs.
-BuildRequires: libXt-devel libdmx-devel libXmu-devel libXrender-devel
-BuildRequires: libXi-devel libXpm-devel libXaw-devel libXfixes-devel
-
-BuildRequires: pkgconfig(epoxy)
-BuildRequires: pkgconfig(xshmfence) >= 1.1
-BuildRequires: libXv-devel
-BuildRequires: pixman-devel >= 0.30.0
-BuildRequires: libpciaccess-devel >= 0.13.1 openssl-devel bison flex
-BuildRequires: mesa-libGL-devel >= 9.2
-BuildRequires: mesa-libEGL-devel
-BuildRequires: mesa-libgbm-devel
-# XXX silly...
-BuildRequires: libdrm-devel >= 2.4.0 kernel-headers
-
-BuildRequires: audit-libs-devel libselinux-devel >= 2.0.86-1
-BuildRequires: libudev-devel
-# libunwind is Exclusive for the following arches
-%ifarch aarch64 %{arm} hppa ia64 mips ppc ppc64 %{ix86} x86_64
-%if !0%{?rhel}
-BuildRequires: libunwind-devel
-%endif
-%endif
-
-BuildRequires: pkgconfig(xcb-aux) pkgconfig(xcb-image) pkgconfig(xcb-icccm)
-BuildRequires: pkgconfig(xcb-keysyms) pkgconfig(xcb-renderutil)
+BuildRequires:  bison
+BuildRequires:  flex
+BuildRequires:  gawk
+BuildRequires:  gcc
+BuildRequires:  kernel-headers
+BuildRequires:  libXi-devel
+BuildRequires:  libXinerama-devel
+BuildRequires:  libXres-devel
+BuildRequires:  libXv-devel
+BuildRequires:  make
+BuildRequires:  mesa-libEGL-devel
+BuildRequires:  mesa-libGL-devel >= 9.2
+BuildRequires:  meson
+BuildRequires:  pkgconfig
+BuildRequires:  pkgconfig(audit)
+BuildRequires:  pkgconfig(bigreqsproto) >= 1.1.0
+BuildRequires:  pkgconfig(compositeproto) >= 0.4
+BuildRequires:  pkgconfig(damageproto) >= 1.1
+BuildRequires:  pkgconfig(dbus-1) >= 1.0
+BuildRequires:  pkgconfig(dri2proto) >= 2.8
+BuildRequires:  pkgconfig(dri3proto) >= 1.2
+BuildRequires:  pkgconfig(epoxy)
+BuildRequires:  pkgconfig(epoxy) >= 1.5.4
+BuildRequires:  pkgconfig(fixesproto) >= 6.0
+BuildRequires:  pkgconfig(fontsproto) >= 2.1.3
+BuildRequires:  pkgconfig(gbm) >= 10.2
+BuildRequires:  pkgconfig(inputproto) >= 2.3.99.1
+BuildRequires:  pkgconfig(kbproto) >= 1.0.3
+BuildRequires:  pkgconfig(libdrm) >= 2.4.89
+BuildRequires:  pkgconfig(libselinux) >= 2.0.86
+BuildRequires:  pkgconfig(libsystemd) >= 209
+BuildRequires:  pkgconfig(libudev) >= 143
+BuildRequires:  pkgconfig(libunwind)
+BuildRequires:  pkgconfig(libxcvt)
+BuildRequires:  pkgconfig(openssl)
+BuildRequires:  pkgconfig(pciaccess) >= 0.12.901
+BuildRequires:  pkgconfig(pixman-1)
+BuildRequires:  pkgconfig(randrproto) >= 1.6.0
+BuildRequires:  pkgconfig(recordproto) >= 1.13.99.1
+BuildRequires:  pkgconfig(renderproto) >= 0.11
+BuildRequires:  pkgconfig(resourceproto) >= 1.2.0
+BuildRequires:  pkgconfig(scrnsaverproto) >= 1.1
+BuildRequires:  pkgconfig(videoproto)
+BuildRequires:  pkgconfig(x11)
+BuildRequires:  pkgconfig(x11-xcb)
+BuildRequires:  pkgconfig(xau)
+BuildRequires:  pkgconfig(xcb-aux)
+BuildRequires:  pkgconfig(xcb-icccm)
+BuildRequires:  pkgconfig(xcb-image)
+BuildRequires:  pkgconfig(xcb-keysyms)
+BuildRequires:  pkgconfig(xcb-renderutil)
+BuildRequires:  pkgconfig(xcmiscproto) >= 1.2.0
+BuildRequires:  pkgconfig(xdmcp)
+BuildRequires:  pkgconfig(xext) >= 1.0.99.4
+BuildRequires:  pkgconfig(xextproto) >= 7.2.99.901
+BuildRequires:  pkgconfig(xf86bigfontproto) >= 1.2.0
+BuildRequires:  pkgconfig(xf86vidmodeproto) >= 2.2.99.1
+BuildRequires:  pkgconfig(xfont2) >= 2.0
+BuildRequires:  pkgconfig(xineramaproto)
+BuildRequires:  pkgconfig(xkbfile)
+BuildRequires:  pkgconfig(xproto) >= 7.0.31
+BuildRequires:  pkgconfig(xshmfence) >= 1.1
+BuildRequires:  pkgconfig(xtrans) >= 1.3.5
+BuildRequires:  pkgconfig(xtrans) >= 1.3.5
+BuildRequires:  systemtap-sdt-devel
+BuildRequires:  xorg-x11-util-macros >= 1.17
+BuildRequires:  xorg-x11-xtrans-devel >= 1.3.2
 
 %description
-X.Org X11 X server
+X.Org X11 X server.
 
 
-%package common
-Summary: Xorg server common files
-Requires: pixman >= 0.30.0
-Requires: xkeyboard-config xkbcomp
+%package        common
+Summary:        Xorg server common files
+Requires:       pixman
+Requires:       xkbcomp
+Requires:       xkeyboard-config
 
-%description common
+%description    common
 Common files shared among all X servers.
 
 
-%package Xorg
-Summary: Xorg X server
-Provides: Xorg = %{version}-%{release}
-Provides: Xserver
+%package        Xorg
+Summary:        Xorg X server
+Requires:       libEGL
+Requires:       system-setup-keyboard
+Requires:       xorg-x11-drv-libinput
+Requires:       xorg-x11-server-common >= %{version}-%{release}
+Provides:       Xorg = %{version}-%{release}
+Provides:       Xserver
 # HdG: This should be moved to the wrapper package once the wrapper gets
 # its own sub-package:
-Provides: xorg-x11-server-wrapper = %{version}-%{release}
-%if !0%{?gitdate} || %{stable_abi}
-Provides: xserver-abi(ansic-%{ansic_major}) = %{ansic_minor}
-Provides: xserver-abi(videodrv-%{videodrv_major}) = %{videodrv_minor}
-Provides: xserver-abi(xinput-%{xinput_major}) = %{xinput_minor}
-Provides: xserver-abi(extension-%{extension_major}) = %{extension_minor}
-%endif
-%if 0%{?gitdate}
-Provides: xserver-abi(ansic-%{git_ansic_major}) = %{git_ansic_minor}
-Provides: xserver-abi(videodrv-%{git_videodrv_major}) = %{git_videodrv_minor}
-Provides: xserver-abi(xinput-%{git_xinput_major}) = %{git_xinput_minor}
-Provides: xserver-abi(extension-%{git_extension_major}) = %{git_extension_minor}
-%endif
-Obsoletes: xorg-x11-glamor < %{version}-%{release}
-Provides: xorg-x11-glamor = %{version}-%{release}
-Obsoletes: xorg-x11-drv-modesetting < %{version}-%{release}
-Provides: xorg-x11-drv-modesetting = %{version}-%{release}
-# Dropped from F25
-Obsoletes: xorg-x11-drv-vmmouse < 13.1.0-4
+Provides:       xorg-x11-server-wrapper = %{version}-%{release}
+Provides:       xserver-abi(ansic-%{ansic_major}) = %{ansic_minor}
+Provides:       xserver-abi(videodrv-%{videodrv_major}) = %{videodrv_minor}
+Provides:       xserver-abi(xinput-%{xinput_major}) = %{xinput_minor}
+Provides:       xserver-abi(extension-%{extension_major}) = %{extension_minor}
+# Dropped from xorg-x11-server-21.1
+# https://gitlab.freedesktop.org/xorg/xserver/-/commit/b3b81c8c2090cd49410960a021baf0d27fdd2ab3
+Obsoletes:      xorg-x11-server-Xdmx < 1.20.15
+# Legacy fbdev devices have been replaced with simpledrm:
+# https://fedoraproject.org/wiki/Changes/ReplaceFbdevDrivers
+Obsoletes:      xorg-x11-drv-fbdev < 0.5.0-19
+Obsoletes:      xorg-x11-drv-vesa < 2.6.0-3
+Obsoletes:      xorg-x11-drv-armsoc < 1.4.1-10
 
-Requires: xorg-x11-server-common >= %{version}-%{release}
-Requires: system-setup-keyboard
-Requires: xorg-x11-drv-libinput
-Requires: libEGL
-
-%description Xorg
-X.org X11 is an open source implementation of the X Window System.  It
-provides the basic low level functionality which full fledged
-graphical user interfaces (GUIs) such as GNOME and KDE are designed
-upon.
+%description    Xorg
+X.org X11 is an open source implementation of the X Window System. It provides
+the basic low level functionality which full fledged graphical user interfaces
+(GUIs) such as GNOME and KDE are designed upon.
 
 
-%package Xnest
-Summary: A nested server
-Requires: xorg-x11-server-common >= %{version}-%{release}
-Provides: Xnest
+%package        Xnest
+Summary:        A nested server
+Requires:       xorg-x11-server-common >= %{version}-%{release}
+Provides:       Xnest
 
-%description Xnest
-Xnest is an X server which has been implemented as an ordinary
-X application.  It runs in a window just like other X applications,
-but it is an X server itself in which you can run other software.  It
-is a very useful tool for developers who wish to test their
-applications without running them on their real X server.
-
-
-%package Xdmx
-Summary: Distributed Multihead X Server and utilities
-Requires: xorg-x11-server-common >= %{version}-%{release}
-Provides: Xdmx
-
-%description Xdmx
-Xdmx is proxy X server that provides multi-head support for multiple displays
-attached to different machines (each of which is running a typical X server).
-When Xinerama is used with Xdmx, the multiple displays on multiple machines
-are presented to the user as a single unified screen.  A simple application
-for Xdmx would be to provide multi-head support using two desktop machines,
-each of which has a single display device attached to it.  A complex
-application for Xdmx would be to unify a 4 by 4 grid of 1280x1024 displays
-(each attached to one of 16 computers) into a unified 5120x4096 display.
+%description    Xnest
+Xnest is an X server which has been implemented as an ordinary X application. It
+runs in a window just like other X applications, but it is an X server itself in
+which you can run other software. It is a very useful tool for developers who
+wish to test their applications without running them on their real X server.
 
 
-%package Xvfb
-Summary: A X Windows System virtual framebuffer X server
+%package        Xvfb
+Summary:        A X Windows System virtual framebuffer X server
 # xvfb-run is GPLv2, rest is MIT
-License: MIT and GPLv2
-Requires: xorg-x11-server-common >= %{version}-%{release}
+License:        MIT and GPLv2
+Requires:       xorg-x11-server-common >= %{version}-%{release}
 # required for xvfb-run
-Requires: xorg-x11-xauth
-Provides: Xvfb
+Requires:       xorg-x11-xauth
+Provides:       Xvfb
+Requires:       util-linux
 
-%description Xvfb
-Xvfb (X Virtual Frame Buffer) is an X server that is able to run on
-machines with no display hardware and no physical input devices.
-Xvfb simulates a dumb framebuffer using virtual memory.  Xvfb does
-not open any devices, but behaves otherwise as an X display.  Xvfb
-is normally used for testing servers.
-
-
-%package Xephyr
-Summary: A nested server
-Requires: xorg-x11-server-common >= %{version}-%{release}
-Provides: Xephyr
-
-%description Xephyr
-Xephyr is an X server which has been implemented as an ordinary
-X application.  It runs in a window just like other X applications,
-but it is an X server itself in which you can run other software.  It
-is a very useful tool for developers who wish to test their
-applications without running them on their real X server.  Unlike
-Xnest, Xephyr renders to an X image rather than relaying the
-X protocol, and therefore supports the newer X extensions like
-Render and Composite.
+%description    Xvfb
+Xvfb (X Virtual Frame Buffer) is an X server that is able to run on machines
+with no display hardware and no physical input devices. Xvfb simulates a dumb
+framebuffer using virtual memory. Xvfb does not open any devices, but behaves
+otherwise as an X display. Xvfb is normally used for testing servers.
 
 
-%package devel
-Summary: SDK for X server driver module development
-Requires: xorg-x11-util-macros
-Requires: xorg-x11-proto-devel
-Requires: libXfont2-devel
-Requires: pkgconfig pixman-devel libpciaccess-devel
-Provides: xorg-x11-server-static
-Obsoletes: xorg-x11-glamor-devel < %{version}-%{release}
-Provides: xorg-x11-glamor-devel = %{version}-%{release}
+%package        Xephyr
+Summary:        A nested server
+Requires:       xorg-x11-server-common >= %{version}-%{release}
+Provides:       Xephyr
+
+%description    Xephyr
+Xephyr is an X server which has been implemented as an ordinary X application.
+It runs in a window just like other X applications, but it is an X server itself
+in which you can run other software. It is a very useful tool for developers who
+wish to test their applications without running them on their real X server.
+Unlike Xnest, Xephyr renders to an X image rather than relaying the X protocol,
+and therefore supports the newer X extensions like Render and Composite.
+
+
+%package        devel
+Summary:        SDK for X server driver module development
+Requires:       libpciaccess-devel
+Requires:       libXfont2-devel
+Requires:       xorg-x11-proto-devel
+Requires:       xorg-x11-util-macros
+Requires:       pixman-devel
+Requires:       pkgconfig
+Provides:       xorg-x11-server-static
 
 %description devel
 The SDK package provides the developmental files which are necessary for
-developing X server driver modules, and for compiling driver modules
-outside of the standard X11 source code tree.  Developers writing video
-drivers, input drivers, or other X modules should install this package.
+developing X server driver modules, and for compiling driver modules outside of
+the standard X11 source code tree. Developers writing video drivers, input
+drivers, or other X modules should install this package.
 
 
-%package source
-Summary: Xserver source code required to build VNC server (Xvnc)
-BuildArch: noarch
+%package        source
+Summary:        Xserver source code required to build VNC server (Xvnc)
+BuildArch:      noarch
 
-%description source
-Xserver source code needed to build VNC server (Xvnc)
+%description        source
+Xserver source code needed to build VNC server (Xvnc).
 
 
 %prep
-%autosetup -N -n %{pkgname}-%{?gitdate:%{gitdate}}%{!?gitdate:%{version}}
-rm -rf .git
-cp %{SOURCE1} .gitignore
-# ick
-%global __scm git
-%{expand:%__scm_setup_git -q}
-%if 0%{?fedora} >= 38
-%autopatch
-%else
-%autopatch -M 3800
-%endif
+%autosetup -p1 -n %{pkgname}-%{version}
 
-%if 0%{?stable_abi}
 # check the ABI in the source against what we expect.
 getmajor() {
     grep -i ^#define.ABI.$1_VERSION hw/xfree86/common/xf86Module.h |
@@ -372,76 +252,80 @@ test `getminor xinput` == %{xinput_minor}
 test `getmajor extension` == %{extension_major}
 test `getminor extension` == %{extension_minor}
 
-%endif
-
 %build
+%meson \
+    -D agp=auto \
+    -D builder_string="Build ID: %{name} %{version}-%{release}" \
+    -D default_font_path="catalogue:/etc/X11/fontpath.d,built-ins" \
+    -D devel-docs=false \
+    -D dga=true \
+    -D docs-pdf=false \
+    -D docs=false \
+    -D dpms=true \
+    -D dri1=false \
+    -D dri2=true \
+    -D dri3=true \
+    -D drm=true \
+    -D dtrace=false \
+    -D fallback_input_driver=libinput \
+    -D glamor=true \
+    -D glx=true \
+    -D hal=false \
+    -D input_thread=true \
+    -D int10=false \
+    -D ipv6=true \
+    -D libunwind=true \
+    -D linux_acpi=false \
+    -D linux_apm=false \
+    -D listen_local=true \
+    -D listen_tcp=false \
+    -D listen_unix=true \
+    -D log_dir="%{_localstatedir}/log" \
+    -D mitshm=auto \
+    -D module_dir="%{_libdir}/xorg/modules" \
+    -D pciaccess=true \
+    -D screensaver=true \
+    -D secure-rpc=false \
+    -D sha1=libcrypto \
+    -D suid_wrapper=true \
+    -D systemd_logind=true \
+    -D udev_kms=true \
+    -D udev=true \
+    -D vgahw=true \
+    -D xace=true \
+    -D xcsecurity=true \
+    -D xdm-auth-1=true \
+    -D xdmcp=true \
+    -D xephyr=true \
+    -D xf86bigfont=false \
+    -D xf86-input-inputtest=true \
+    -D xinerama=true \
+    -D xkb_output_dir="%{_localstatedir}/lib/xkb" \
+    -D xnest=true \
+    -D xorg=true \
+    -D xpbproxy=false \
+    -D xquartz=false \
+    -D xres=true \
+    -D xselinux=true \
+    -D xvfb=true \
+    -D xvmc=true \
+    -D xv=true \
+    -D xwin=false
 
-export CFLAGS="$RPM_OPT_FLAGS -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1"
-export CXXFLAGS="$RPM_OPT_FLAGS -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1"
-export LDFLAGS="$RPM_LD_FLAGS -specs=/usr/lib/rpm/redhat/redhat-hardened-ld"
-
-%if !0%{?rhel}
-%ifarch %{ix86} x86_64
-%global int10_arch 1
-%endif
-%endif
-
-%if %{undefined int10_arch}
-%global no_int10 --disable-vbe --disable-int10-module
-%endif
-
-%global kdrive --enable-kdrive --enable-xephyr --disable-xfake --disable-xfbdev
-%global xservers --enable-xvfb --enable-xnest %{kdrive} --enable-xorg
-%global default_font_path "catalogue:/etc/X11/fontpath.d,built-ins"
-%global dri_flags --disable-dri --enable-dri2 %{?!rhel:--enable-dri3} --enable-suid-wrapper --enable-glamor
-
-autoreconf -f -v --install || exit 1
-
-%configure %{xservers} \
-	--enable-dependency-tracking \
-	--disable-static \
-	--with-pic \
-	%{?no_int10} \
-	--with-default-font-path=%{default_font_path} \
-	--with-module-dir=%{_libdir}/xorg/modules \
-	--with-builderstring="Build ID: %{name} %{version}-%{release}" \
-	--with-os-name="$(hostname -s) $(uname -r)" \
-	--with-xkb-output=%{_localstatedir}/lib/xkb \
-        --without-dtrace \
-	--disable-linux-acpi --disable-linux-apm \
-	--enable-xselinux --enable-record --enable-present \
-        --enable-xcsecurity \
-	--enable-config-udev \
-	--disable-unit-tests \
-	--enable-dmx \
-	--disable-xwayland \
-	%{dri_flags} \
-	${CONFIGURE}
-
-make V=1 %{?_smp_mflags}
-
+%meson_build
 
 %install
-%make_install
+%meson_install
 
-mkdir -p $RPM_BUILD_ROOT%{_libdir}/xorg/modules/{drivers,input}
-
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/pam.d
-install -m 644 %{SOURCE10} $RPM_BUILD_ROOT%{_sysconfdir}/pam.d/xserver
+install -D -m 0644 -p xkb/README.compiled %{buildroot}%{_localstatedir}/lib/xkb/README.compiled
+install -D -m 0644 %{SOURCE10} %{buildroot}%{_sysconfdir}/pam.d/xserver
 
 # make sure the (empty) /etc/X11/xorg.conf.d is there, system-setup-keyboard
 # relies on it more or less.
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/X11/xorg.conf.d
+mkdir -p %{buildroot}%{_sysconfdir}/X11/xorg.conf.d
 
-%if %{stable_abi}
-install -m 755 %{SOURCE30} $RPM_BUILD_ROOT%{_bindir}/xserver-sdk-abi-requires
-%else
-sed -e s/@MAJOR@/%{gitdate}/g -e s/@MINOR@/%{minor_serial}/g %{SOURCE31} > \
-    $RPM_BUILD_ROOT%{_bindir}/xserver-sdk-abi-requires
-chmod 755 $RPM_BUILD_ROOT%{_bindir}/xserver-sdk-abi-requires
-%endif
-
-install -m 0755 %{SOURCE20} $RPM_BUILD_ROOT%{_bindir}/xvfb-run
+install -D -m 0755 %{SOURCE30} %{buildroot}%{_bindir}/xserver-sdk-abi-requires
+install -D -m 0755 %{SOURCE20} %{buildroot}%{_bindir}/xvfb-run
 
 # Make the source package
 %global xserver_source_dir %{_datadir}/xorg-x11-server-source
@@ -452,24 +336,18 @@ mkdir -p %{inst_srcdir}/{hw/dmx/doc,man,doc,hw/dmx/doxygen}
 cp {,%{inst_srcdir}/}hw/xquartz/bundle/cpprules.in
 cp {,%{inst_srcdir}/}man/Xserver.man
 cp {,%{inst_srcdir}/}doc/smartsched
-cp {,%{inst_srcdir}/}hw/dmx/doxygen/doxygen.conf.in
+#cp {,%{inst_srcdir}/}hw/dmx/doxygen/doxygen.conf.in
 cp {,%{inst_srcdir}/}xserver.ent.in
 cp {,%{inst_srcdir}/}hw/xfree86/Xorg.sh.in
 cp xkb/README.compiled %{inst_srcdir}/xkb
 cp hw/xfree86/xorgconf.cpp %{inst_srcdir}/hw/xfree86
 
-find . -type f | egrep '.*\.(c|h|am|ac|inc|m4|h.in|pc.in|man.pre|pl|txt)$' |
+find . -type f -not -path "./%{_vpath_builddir}/*" | egrep '.*\.(c|h|am|ac|inc|m4|h.in|pc.in|man.pre|pl|txt)$' |
 xargs tar cf - | (cd %{inst_srcdir} && tar xf -)
 find %{inst_srcdir}/hw/xfree86 -name \*.c -delete
 
 # Remove unwanted files/dirs
-{
-    find $RPM_BUILD_ROOT -type f -name '*.la' | xargs rm -f -- || :
-# wtf
-%ifnarch %{ix86} x86_64
-    rm -f $RPM_BUILD_ROOT%{_libdir}/xorg/modules/lib{int10,vbe}.so
-%endif
-}
+find %{buildroot} -type f -name '*.la' -delete
 
 
 %files common
@@ -479,21 +357,15 @@ find %{inst_srcdir}/hw/xfree86 -name \*.c -delete
 %dir %{_localstatedir}/lib/xkb
 %{_localstatedir}/lib/xkb/README.compiled
 
-%if 1
-%global Xorgperms %attr(4755, root, root)
-%else
-# disable until module loading is audited
-%global Xorgperms %attr(0711,root,root) %caps(cap_sys_admin,cap_sys_rawio,cap_dac_override=pe)
-%endif
-
 %files Xorg
 %config %attr(0644,root,root) %{_sysconfdir}/pam.d/xserver
+%{_bindir}/gtf
 %{_bindir}/X
 %{_bindir}/Xorg
 %{_libexecdir}/Xorg
-%{Xorgperms} %{_libexecdir}/Xorg.wrap
-%{_bindir}/cvt
-%{_bindir}/gtf
+# Disable until module loading is audited
+# %attr(0711,root,root) %caps(cap_sys_admin,cap_sys_rawio,cap_dac_override=pe)
+%attr(4755, root, root) %{_libexecdir}/Xorg.wrap
 %dir %{_libdir}/xorg
 %dir %{_libdir}/xorg/modules
 %dir %{_libdir}/xorg/modules/drivers
@@ -501,28 +373,25 @@ find %{inst_srcdir}/hw/xfree86 -name \*.c -delete
 %dir %{_libdir}/xorg/modules/extensions
 %{_libdir}/xorg/modules/extensions/libglx.so
 %dir %{_libdir}/xorg/modules/input
-%{_libdir}/xorg/modules/libfbdevhw.so
+%{_libdir}/xorg/modules/input/inputtest_drv.so
 %{_libdir}/xorg/modules/libexa.so
-%{_libdir}/xorg/modules/libfb.so
+%{_libdir}/xorg/modules/libfbdevhw.so
+#%%{_libdir}/xorg/modules/libfb.so
 %{_libdir}/xorg/modules/libglamoregl.so
 %{_libdir}/xorg/modules/libshadow.so
 %{_libdir}/xorg/modules/libshadowfb.so
 %{_libdir}/xorg/modules/libvgahw.so
 %{_libdir}/xorg/modules/libwfb.so
-%if %{defined int10_arch}
-%{_libdir}/xorg/modules/libint10.so
-%{_libdir}/xorg/modules/libvbe.so
-%endif
 %{_mandir}/man1/gtf.1*
 %{_mandir}/man1/Xorg.1*
 %{_mandir}/man1/Xorg.wrap.1*
-%{_mandir}/man1/cvt.1*
-%{_mandir}/man4/fbdevhw.4*
 %{_mandir}/man4/exa.4*
+%{_mandir}/man4/fbdevhw.4*
+%{_mandir}/man4/inputtestdrv.4*
 %{_mandir}/man4/modesetting.4*
-%{_mandir}/man5/Xwrapper.config.5*
 %{_mandir}/man5/xorg.conf.5*
 %{_mandir}/man5/xorg.conf.d.5*
+%{_mandir}/man5/Xwrapper.config.5*
 %dir %{_sysconfdir}/X11/xorg.conf.d
 %dir %{_datadir}/X11/xorg.conf.d
 %{_datadir}/X11/xorg.conf.d/10-quirks.conf
@@ -530,24 +399,6 @@ find %{inst_srcdir}/hw/xfree86 -name \*.c -delete
 %files Xnest
 %{_bindir}/Xnest
 %{_mandir}/man1/Xnest.1*
-
-%files Xdmx
-%{_bindir}/Xdmx
-%{_bindir}/dmxaddinput
-%{_bindir}/dmxaddscreen
-%{_bindir}/dmxreconfig
-%{_bindir}/dmxresize
-%{_bindir}/dmxrminput
-%{_bindir}/dmxrmscreen
-%{_bindir}/dmxtodmx
-%{_bindir}/dmxwininfo
-%{_bindir}/vdltodmx
-%{_bindir}/dmxinfo
-%{_bindir}/xdmxconfig
-%{_mandir}/man1/Xdmx.1*
-%{_mandir}/man1/dmxtodmx.1*
-%{_mandir}/man1/vdltodmx.1*
-%{_mandir}/man1/xdmxconfig.1*
 
 %files Xvfb
 %{_bindir}/Xvfb
@@ -560,7 +411,6 @@ find %{inst_srcdir}/hw/xfree86 -name \*.c -delete
 
 %files devel
 %doc COPYING
-#{_docdir}/xorg-server
 %{_bindir}/xserver-sdk-abi-requires
 %{_libdir}/pkgconfig/xorg-server.pc
 %dir %{_includedir}/xorg

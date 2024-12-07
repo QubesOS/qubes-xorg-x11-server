@@ -52,7 +52,7 @@ index 6619e3aa7..1f8ad14bc 100644
      /* For non-PCI devices and drmGetDevice fail, just assume that
       * the 3D driver is named the same as the kernel driver. This is
       * currently true for vc4 and msm (freedreno).
-@@ -1456,12 +1460,14 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
+@@ -1454,12 +1458,14 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
              xf86DrvMsg(pScreen->myNum, X_ERROR,
                         "[DRI2] Couldn't drmGetVersion() on non-PCI device, "
                         "no driver name found.\n");
@@ -70,7 +70,7 @@ index 6619e3aa7..1f8ad14bc 100644
      }
  
      for (i = 0; driver_map[i].driver; i++) {
-@@ -1469,13 +1475,15 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
+@@ -1467,13 +1473,15 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
              continue;
  
          if (driver_map[i].num_chips_ids == -1) {
@@ -88,7 +88,7 @@ index 6619e3aa7..1f8ad14bc 100644
                  goto out;
              }
          }
-@@ -1487,9 +1495,9 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
+@@ -1485,9 +1493,9 @@ dri2_probe_driver_name(ScreenPtr pScreen, DRI2InfoPtr info)
                 dev->deviceinfo.pci->vendor_id, dev->deviceinfo.pci->device_id);
  out:
      drmFreeDevice(&dev);
@@ -100,21 +100,21 @@ index 6619e3aa7..1f8ad14bc 100644
  #endif
  }
  
-@@ -1610,7 +1618,8 @@ DRI2ScreenInit(ScreenPtr pScreen, DRI2InfoPtr info)
-         if (info->driverName) {
-             ds->driverNames[0] = info->driverName;
+@@ -1604,7 +1612,8 @@ DRI2ScreenInit(ScreenPtr pScreen, DRI2InfoPtr info)
          } else {
+             /* FIXME dri2_probe_driver_name() returns a strdup-ed string,
+              * currently this gets leaked */
 -            ds->driverNames[0] = ds->driverNames[1] = dri2_probe_driver_name(pScreen, info);
 +            dri2_probe_driver_name(pScreen, info,
 +                                   &ds->driverNames[0], &ds->driverNames[1]);
              if (!ds->driverNames[0])
                  return FALSE;
-         }
+ 
 diff --git a/hw/xfree86/dri2/pci_ids/pci_id_driver_map.h b/hw/xfree86/dri2/pci_ids/pci_id_driver_map.h
 index da7ea1c1e..7036d1003 100644
 --- a/hw/xfree86/dri2/pci_ids/pci_id_driver_map.h
 +++ b/hw/xfree86/dri2/pci_ids/pci_id_driver_map.h
-@@ -66,21 +66,22 @@ static const int vmwgfx_chip_ids[] = {
+@@ -60,23 +60,24 @@ static const int vmwgfx_chip_ids[] = {
  static const struct {
     int vendor_id;
     const char *driver;
@@ -124,8 +124,10 @@ index da7ea1c1e..7036d1003 100644
  } driver_map[] = {
 -   { 0x8086, "i915", i915_chip_ids, ARRAY_SIZE(i915_chip_ids) },
 -   { 0x8086, "i965", i965_chip_ids, ARRAY_SIZE(i965_chip_ids) },
+-   { 0x8086, "i965", NULL, -1 },
 +   { 0x8086, "i915", "i915", i915_chip_ids, ARRAY_SIZE(i915_chip_ids) },
 +   { 0x8086, "i965", "va_gl", i965_chip_ids, ARRAY_SIZE(i965_chip_ids) },
++   { 0x8086, "i965", "va_gl", NULL, -1 },
  #ifndef DRIVER_MAP_GALLIUM_ONLY
 -   { 0x1002, "radeon", r100_chip_ids, ARRAY_SIZE(r100_chip_ids) },
 -   { 0x1002, "r200", r200_chip_ids, ARRAY_SIZE(r200_chip_ids) },
@@ -134,19 +136,18 @@ index da7ea1c1e..7036d1003 100644
  #endif
 -   { 0x1002, "r300", r300_chip_ids, ARRAY_SIZE(r300_chip_ids) },
 -   { 0x1002, "r600", r600_chip_ids, ARRAY_SIZE(r600_chip_ids) },
--   { 0x1002, "radeonsi", radeonsi_chip_ids, ARRAY_SIZE(radeonsi_chip_ids) },
+-   { 0x1002, "radeonsi", NULL, -1 },
 -   { 0x10de, "nouveau", NULL, -1 },
 -   { 0x1af4, "virtio_gpu", virtio_gpu_chip_ids, ARRAY_SIZE(virtio_gpu_chip_ids) },
 -   { 0x15ad, "vmwgfx", vmwgfx_chip_ids, ARRAY_SIZE(vmwgfx_chip_ids) },
+-   { 0x0000, NULL, NULL, 0 },
 +   { 0x1002, "r300", "r300", r300_chip_ids, ARRAY_SIZE(r300_chip_ids) },
-+   { 0x1002, "r600","r600",  r600_chip_ids, ARRAY_SIZE(r600_chip_ids) },
-+   { 0x1002, "radeonsi", "radeonsi", radeonsi_chip_ids, ARRAY_SIZE(radeonsi_chip_ids) },
++   { 0x1002, "r600", "r600", r600_chip_ids, ARRAY_SIZE(r600_chip_ids) },
++   { 0x1002, "radeonsi", "radeonsi", NULL, -1 },
 +   { 0x10de, "nouveau", "nouveau", NULL, -1 },
 +   { 0x1af4, "virtio_gpu", "virtio_gpu", virtio_gpu_chip_ids, ARRAY_SIZE(virtio_gpu_chip_ids) },
 +   { 0x15ad, "vmwgfx", "vmwgfx", vmwgfx_chip_ids, ARRAY_SIZE(vmwgfx_chip_ids) },
-    { 0x0000, NULL, NULL, 0 },
++   { 0x0000, NULL, NULL, NULL, 0 },
  };
  
--- 
-2.19.0
-
+ #endif /* _PCI_ID_DRIVER_MAP_H_ */

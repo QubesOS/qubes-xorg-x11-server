@@ -1,4 +1,4 @@
-From d0979779c748ac0846c69f25b1381160a736ea6f Mon Sep 17 00:00:00 2001
+From 846c926735d78e4821bfe7491437f703ae280067 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
  <marmarek@invisiblethingslab.com>
 Date: Sat, 7 Dec 2024 03:06:08 +0100
@@ -22,7 +22,7 @@ Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/hw/xfree86/ddc/interpret_edid.c b/hw/xfree86/ddc/interpret_edid.c
-index 19630471c..8fef90f4a 100644
+index 7259d2192..17ce928b1 100644
 --- a/hw/xfree86/ddc/interpret_edid.c
 +++ b/hw/xfree86/ddc/interpret_edid.c
 @@ -766,6 +766,13 @@ gtf_supported(xf86MonPtr mon)
@@ -38,7 +38,7 @@ index 19630471c..8fef90f4a 100644
 +
          for (i = 0; i < DET_TIMINGS; i++) {
              struct detailed_monitor_section *det_timing_des = &(mon->det_mon[i]);
-             if (det_timing_des && (det_timing_des->type == DS_RANGES) &&
+             if (det_timing_des && (det_timing_des->type == DS_RANGES) && (mon->features.msc & 0x1) &&
 -- 
 2.46.0
 
