@@ -1,0 +1,34 @@
+From b9218fadf3c09d83566549279d68886d8258f79c Mon Sep 17 00:00:00 2001
+From: nerdopolis <rbos@rbos>
+Date: Thu, 30 Sep 2021 08:51:18 -0400
+Subject: [PATCH] xf86: Accept devices with the 'simpledrm' driver.
+
+SimpleDRM 'devices' are a fallback device, and do not have a busid
+so they are getting skipped. This will allow simpledrm to work
+with the modesetting driver
+---
+ hw/xfree86/common/xf86platformBus.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/hw/xfree86/common/xf86platformBus.c b/hw/xfree86/common/xf86platformBus.c
+index 0e0a995ac..45028f7a6 100644
+--- a/hw/xfree86/common/xf86platformBus.c
++++ b/hw/xfree86/common/xf86platformBus.c
+@@ -557,8 +557,13 @@ xf86platformProbeDev(DriverPtr drvp)
+             }
+             else {
+                 /* for non-seat0 servers assume first device is the master */
+-                if (ServerIsNotSeat0())
++                if (ServerIsNotSeat0()) {
+                     break;
++                } else {
++                    /* Accept the device if the driver is simpledrm */
++                    if (strcmp(xf86_platform_devices[j].attribs->driver, "simpledrm") == 0)
++                        break;
++                }
+ 
+                 if (xf86IsPrimaryPlatform(&xf86_platform_devices[j]))
+                     break;
+-- 
+2.35.1
+

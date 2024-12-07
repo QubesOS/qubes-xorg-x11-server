@@ -1,0 +1,135 @@
+From 6497eeeb1a6552315132340565a3901d4db2144c Mon Sep 17 00:00:00 2001
+From: Boris-Barboris <ismailsiege@gmail.com>
+Date: Tue, 22 Jun 2021 00:51:08 +0300
+Subject: [PATCH] Don't hardcode fps for fake screen
+
+Currently, when main hardware screen is powered-off,
+X server initializes fake screen's timer with
+1 second update interval.
+
+Streaming software like Nomachine or Vnc, as well as
+desktop input automation suffers from it, since it
+will forever be stuck on 1 fps until the display is
+turned back on.
+
+This commit adds command line option -fakescreenfps <int>
+that allows the user to change the default fake screen
+timer.
+
+Signed-off-by: Baranin Alexander <ismailsiege@gmail.com>
+---
+ man/Xserver.man        |  3 +++
+ os/utils.c             | 12 ++++++++++++
+ present/present.h      |  2 ++
+ present/present_fake.c | 28 ++++++++++++++++++----------
+ 4 files changed, 35 insertions(+), 10 deletions(-)
+
+diff --git a/man/Xserver.man b/man/Xserver.man
+index 31ffb8c..b1a3f40 100644
+--- a/man/Xserver.man
++++ b/man/Xserver.man
+@@ -169,6 +169,9 @@ sets default cursor font.
+ .B \-fn \fIfont\fP
+ sets the default font.
+ .TP 8
++.B \-fakescreenfps \fFps\fP
++sets fake presenter screen default fps (allowable range: 1-600).
++.TP 8
+ .B \-fp \fIfontPath\fP
+ sets the search path for fonts.  This path is a comma separated list
+ of directories which the X server searches for font databases.
+diff --git a/os/utils.c b/os/utils.c
+index 2ba1c80..721d4e9 100644
+--- a/os/utils.c
++++ b/os/utils.c
+@@ -110,6 +110,8 @@ __stdcall unsigned long GetTickCount(void);
+ 
+ #include "picture.h"
+ 
++#include "present.h"
++
+ Bool noTestExtensions;
+ 
+ #ifdef COMPOSITE
+@@ -526,6 +528,7 @@ UseMsg(void)
+     ErrorF
+         ("-deferglyphs [none|all|16] defer loading of [no|all|16-bit] glyphs\n");
+     ErrorF("-f #                   bell base (0-100)\n");
++    ErrorF("-fakescreenfps #       fake screen default fps (1-600)\n");
+     ErrorF("-fc string             cursor font\n");
+     ErrorF("-fn string             default font name\n");
+     ErrorF("-fp string             default font path\n");
+@@ -776,6 +779,15 @@ ProcessCommandLine(int argc, char *argv[])
+             else
+                 UseMsg();
+         }
++        else if (strcmp(argv[i], "-fakescreenfps") == 0) {
++            if (++i < argc) {
++                FakeScreenFps = (uint32_t) atoi(argv[i]);
++                if (FakeScreenFps < 1 || FakeScreenFps > 600)
++                    FatalError("fakescreenfps must be an integer in [1;600] range\n");
++            }
++            else
++                UseMsg();
++        }
+         else if (strcmp(argv[i], "-fc") == 0) {
+             if (++i < argc)
+                 defaultCursorFont = argv[i];
+diff --git a/present/present.h b/present/present.h
+index 3d0b972..e7cc50d 100644
+--- a/present/present.h
++++ b/present/present.h
+@@ -190,4 +190,6 @@ present_register_complete_notify(present_complete_notify_proc proc);
+ extern _X_EXPORT Bool
+ present_can_window_flip(WindowPtr window);
+ 
++extern _X_EXPORT uint32_t FakeScreenFps;
++
+ #endif /* _PRESENT_H_ */
+diff --git a/present/present_fake.c b/present/present_fake.c
+index 2350638..d9ac598 100644
+--- a/present/present_fake.c
++++ b/present/present_fake.c
+@@ -117,21 +117,29 @@ present_fake_queue_vblank(ScreenPtr     screen,
+     return Success;
+ }
+ 
++uint32_t FakeScreenFps = 0;
++
+ void
+ present_fake_screen_init(ScreenPtr screen)
+ {
++    uint32_t                fake_fps;
+     present_screen_priv_ptr screen_priv = present_screen_priv(screen);
+ 
+-    /* For screens with hardware vblank support, the fake code
+-     * will be used for off-screen windows and while screens are blanked,
+-     * in which case we want a slow interval here
+-     *
+-     * Otherwise, pretend that the screen runs at 60Hz
+-     */
+-    if (screen_priv->info && screen_priv->info->get_crtc)
+-        screen_priv->fake_interval = 1000000;
+-    else
+-        screen_priv->fake_interval = 16667;
++    if (FakeScreenFps)
++        fake_fps = FakeScreenFps;
++    else {
++        /* For screens with hardware vblank support, the fake code
++        * will be used for off-screen windows and while screens are blanked,
++        * in which case we want a large interval here: 1Hz
++        *
++        * Otherwise, pretend that the screen runs at 60Hz
++        */
++        if (screen_priv->info && screen_priv->info->get_crtc)
++            fake_fps = 1;
++        else
++            fake_fps = 60;
++    }
++    screen_priv->fake_interval = 1000000 / fake_fps;
+ }
+ 
+ void
+-- 
+2.34.1
+

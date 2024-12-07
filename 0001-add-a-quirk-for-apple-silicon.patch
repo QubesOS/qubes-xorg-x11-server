@@ -1,0 +1,30 @@
+commit 39934a656a44722d16a80bf4db411c53e2d67b38 (HEAD -> master, origin/master, origin/HEAD)
+Author: Eric Curtin <ecurtin@redhat.com>
+Date:   Fri Dec 16 11:10:12 2022 +0000
+
+    config: add a quirk for Apple Silicon appledrm
+    
+    Xorg server does not correctly select the DCP for the display without a
+    quirk on Apple Silicon.
+    
+    Signed-off-by: Eric Curtin <ecurtin@redhat.com>
+    Suggested-by: Hector Martin <marcan@marcan.st>
+
+diff --git a/config/10-quirks.conf b/config/10-quirks.conf
+index 47907d82d..54dd908a7 100644
+--- a/config/10-quirks.conf
++++ b/config/10-quirks.conf
+@@ -36,3 +36,13 @@ Section "InputClass"
+         MatchDriver "evdev"
+         Option "TypeName" "MOUSE"
+ EndSection
++
++# https://bugzilla.redhat.com/show_bug.cgi?id=2152414
++# Xorg server does not correctly select the DCP for the display without
++# a quirk on Apple Silicon
++Section "OutputClass"
++        Identifier "appledrm"
++        MatchDriver "apple"
++        Driver "modesetting"
++        Option "PrimaryGPU" "true"
++EndSection
