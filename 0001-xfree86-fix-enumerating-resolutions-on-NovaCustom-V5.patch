@@ -1,0 +1,44 @@
+From d0979779c748ac0846c69f25b1381160a736ea6f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Marek=20Marczykowski-G=C3=B3recki?=
+ <marmarek@invisiblethingslab.com>
+Date: Sat, 7 Dec 2024 03:06:08 +0100
+Subject: [PATCH] xfree86: fix enumerating resolutions on NovaCustom V54
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With EDID present on NovaCustom V54 causes Xorg list _only_ the native
+resolution. Wayland (gnome-shell) and Windows lists them all. I'm not
+exactly sure what is wrong, especially whether it's buggy EDID or its
+interpretation by Xorg, but given it works fine on other
+implementations, it's likely Xorg issue. The simple change that seems to
+fix it is pretending the display doesn't support GTF. So, do that, but
+only for this specific display to limit impact on other displays (in
+case it would break handling other GTF-supporting displays).
+
+Signed-off-by: Marek Marczykowski-Górecki <marmarek@invisiblethingslab.com>
+---
+ hw/xfree86/ddc/interpret_edid.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/hw/xfree86/ddc/interpret_edid.c b/hw/xfree86/ddc/interpret_edid.c
+index 19630471c..8fef90f4a 100644
+--- a/hw/xfree86/ddc/interpret_edid.c
++++ b/hw/xfree86/ddc/interpret_edid.c
+@@ -766,6 +766,13 @@ gtf_supported(xf86MonPtr mon)
+         if (mon->features.msc & 0x1)
+ 	    return TRUE;
+     } else {
++        /*
++         * quirk for NovaCustom V54 laptop, see
++         * https://github.com/Dasharo/dasharo-issues/issues/949
++         */
++        if (strcmp(mon->vendor.name, "TMX") == 0 && mon->vendor.prod_id == 8196)
++            return FALSE;
++
+         for (i = 0; i < DET_TIMINGS; i++) {
+             struct detailed_monitor_section *det_timing_des = &(mon->det_mon[i]);
+             if (det_timing_des && (det_timing_des->type == DS_RANGES) &&
+-- 
+2.46.0
+

@@ -97,6 +97,11 @@ Patch6: 0001-Fedora-hack-Make-the-suid-root-wrapper-always-start-.patch
 # https://gitlab.freedesktop.org/xorg/xserver/-/merge_requests/1001`
 Patch7: 0001-configure.ac-search-for-the-fontrootdir-ourselves.patch
 
+# quirk for Novacustom V54
+Patch8: 0001-xfree86-fix-enumerating-resolutions-on-NovaCustom-V5.patch
+# backport necessary for the above patch to be effective
+Patch9: 0002-hw-xfree86-re-calculate-the-clock-and-refresh-rate.patch
+
 # Backports from current stable "server-1.20-branch":
 # <empty>
 
