@@ -1,0 +1,8 @@
+host:
+  rpm:
+    build:
+    - xorg-x11-server.spec
+source:
+  files:
+  - url: https://www.x.org/pub/individual/xserver/xorg-server-@VERSION@.tar.xz
+    sha512: xorg-server-@VERSION@.tar.xz.sha512
